@@ -1,148 +1,139 @@
 import os
-import logging
-from flask import Flask, request, jsonify, render_template
-from flask_sqlalchemy import SQLAlchemy
-from flask_migrate import Migrate
-from dotenv import load_dotenv
-from flask_talisman import Talisman
-from flask_wtf.csrf import CSRFProtect
-from wtforms import Form, StringField, IntegerField, validators
-from logging.config import dictConfig
-
-# Load environment variables
-load_dotenv()
-
-# Configure structured logging
-dictConfig({
-    'version': 1,
-    'formatters': {
-        'default': {
-            'format': '[%(asctime)s] %(levelname)s in %(module)s: %(message)s',
-        },
-    },
-    'handlers': {
-        'wsgi': {
-            'class': 'logging.StreamHandler',
-            'stream': 'ext://sys.stdout',
-            'formatter': 'default'
-        },
-    },
-    'root': {
-        'level': 'INFO',
-        'handlers': ['wsgi']
-    }
-})
+import sqlite3
+from flask import Flask, render_template, request, redirect, url_for, flash
+from contextlib import contextmanager
 
 app = Flask(__name__)
-app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('SQLALCHEMY_DATABASE_URI')
-app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-app.config['SECRET_KEY'] = os.getenv('SECRET_KEY')
+app.secret_key = os.environ.get('SECRET_KEY', 'user-management-secret-key-2024')
+DATABASE = 'users.db'
 
-db = SQLAlchemy(app)
-migrate = Migrate(app, db)
+@contextmanager
+def get_db():
+    """Database connection context manager."""
+    conn = sqlite3.connect(DATABASE)
+    conn.row_factory = sqlite3.Row  # Return rows as dictionaries
+    try:
+        yield conn
+        conn.commit()
+    finally:
+        conn.close()
 
-# Add security headers
-Talisman(app)
+def init_db():
+    """Initialize database with users table and sample data."""
+    with get_db() as conn:
+        conn.execute('''
+            CREATE TABLE IF NOT EXISTS users (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL,
+                age INTEGER NOT NULL,
+                sex TEXT NOT NULL CHECK (sex IN ('M', 'F')),
+                experience INTEGER NOT NULL,
+                phone_number TEXT NOT NULL
+            )
+        ''')
+        
+        # Add sample data if table is empty
+        cursor = conn.execute('SELECT COUNT(*) FROM users')
+        if cursor.fetchone()[0] == 0:
+            sample_users = [
+                ('Alice Johnson', 28, 'F', 5, '555-0101'),
+                ('Bob Smith', 35, 'M', 12, '555-0102'),
+                ('Carol Williams', 42, 'F', 18, '555-0103'),
+                ('David Brown', 24, 'M', 2, '555-0104'),
+                ('Eva Davis', 31, 'F', 8, '555-0105')
+            ]
+            conn.executemany(
+                'INSERT INTO users (name, age, sex, experience, phone_number) VALUES (?, ?, ?, ?, ?)',
+                sample_users
+            )
 
-# Enable CSRF protection
-csrf = CSRFProtect(app)
+def get_users(age_min=None, age_max=None, exp_min=None, exp_max=None, sex=None):
+    """Fetch users with optional filters."""
+    with get_db() as conn:
+        query = 'SELECT * FROM users WHERE 1=1'
+        params = []
+        if age_min is not None:
+            query += ' AND age >= ?'
+            params.append(age_min)
+        if age_max is not None:
+            query += ' AND age <= ?'
+            params.append(age_max)
+        if exp_min is not None:
+            query += ' AND experience >= ?'
+            params.append(exp_min)
+        if exp_max is not None:
+            query += ' AND experience <= ?'
+            params.append(exp_max)
+        if sex in ('M', 'F'):
+            query += ' AND sex = ?'
+            params.append(sex)
+        
+        query += ' ORDER BY name'
+        cursor = conn.execute(query, params)
+        return [dict(row) for row in cursor.fetchall()]
 
-class User(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String(100), nullable=False)
-    age = db.Column(db.Integer, nullable=False)
-    sex = db.Column(db.String(10), nullable=False)
-    mobile_number = db.Column(db.String(15), nullable=False)
-    experience = db.Column(db.Integer, nullable=False)
-    locality = db.Column(db.String(100), nullable=False)
+def get_total_users_count():
+    """Get total number of users in the database."""
+    with get_db() as conn:
+        cursor = conn.execute('SELECT COUNT(*) FROM users')
+        return cursor.fetchone()[0]
 
-class UserForm(Form):
-    name = StringField('Name', [validators.Length(min=1, max=100)])
-    age = IntegerField('Age', [validators.NumberRange(min=0)])
-    sex = StringField('Sex', [validators.AnyOf(['Male', 'Female'])])
-    mobile_number = StringField('Mobile Number', [validators.Length(min=10, max=15)])
-    experience = IntegerField('Experience', [validators.NumberRange(min=0)])
-    locality = StringField('Locality', [validators.Length(min=1, max=100)])
-
-@app.route('/register', methods=['POST'])
-def register_user():
-    form = UserForm(request.form)
-    if form.validate():
-        new_user = User(
-            name=form.name.data,
-            age=form.age.data,
-            sex=form.sex.data,
-            mobile_number=form.mobile_number.data,
-            experience=form.experience.data,
-            locality=form.locality.data
+def add_user(name, age, sex, experience, phone_number):
+    """Add a new user to the database."""
+    with get_db() as conn:
+        conn.execute(
+            'INSERT INTO users (name, age, sex, experience, phone_number) VALUES (?, ?, ?, ?, ?)',
+            (name, age, sex, experience, phone_number)
         )
-        db.session.add(new_user)
-        db.session.commit()
-        app.logger.info(f"User {new_user.name} registered successfully!")
-        return jsonify({'message': 'User registered successfully!'}), 201
-    else:
-        app.logger.info(f"Form errors: {form.errors}")
-        return jsonify({'errors': form.errors}), 400
-
-@app.route('/users', methods=['GET'])
-def get_users():
-    filters = request.args
-    query = User.query
-
-    if 'name' in filters:
-        query = query.filter(User.name.like(f"%{filters['name']}%"))
-    if 'age' in filters:
-        query = query.filter_by(age=filters['age'])
-    if 'sex' in filters:
-        query = query.filter_by(sex=filters['sex'])
-    if 'locality' in filters:
-        query = query.filter(User.locality.like(f"%{filters['locality']}%"))
-
-    users = query.all()
-    user_list = [
-        {
-            'id': user.id,
-            'name': user.name,
-            'age': user.age,
-            'sex': user.sex,
-            'mobile_number': user.mobile_number,
-            'experience': user.experience,
-            'locality': user.locality
-        } for user in users
-    ]
-    app.logger.info(f"Found {len(user_list)} users")
-    return jsonify(user_list)
 
 @app.route('/')
 def index():
-    return render_template('index.html')
+    """Display users with optional filters."""
+    age_min = request.args.get('age_min', type=int)
+    age_max = request.args.get('age_max', type=int)
+    exp_min = request.args.get('exp_min', type=int)
+    exp_max = request.args.get('exp_max', type=int)
+    sex = request.args.get('sex')
 
-@app.route('/add-sample-data', methods=['POST'])
-def add_sample_data():
-    sample_users = [
-        User(name='John Doe', age=30, sex='Male', mobile_number='1234567890', experience=5, locality='New York'),
-        User(name='Jane Smith', age=25, sex='Female', mobile_number='9876543210', experience=3, locality='Los Angeles'),
-        User(name='Alice Johnson', age=35, sex='Female', mobile_number='5556667777', experience=10, locality='Chicago'),
-        User(name='Bob Brown', age=40, sex='Male', mobile_number='4445556666', experience=15, locality='Houston')
-    ]
-    db.session.bulk_save_objects(sample_users)
-    db.session.commit()
-    app.logger.info('Sample data added successfully!')
-    return jsonify({'message': 'Sample data added successfully!'}), 201
+    users = get_users(age_min, age_max, exp_min, exp_max, sex)
+    total_users = get_total_users_count()
+    
+    return render_template('index.html', users=users, total_users=total_users)
 
-@app.errorhandler(404)
-def not_found_error(error):
-    app.logger.info('Resource not found')
-    return jsonify({'error': 'Resource not found'}), 404
+@app.route('/register', methods=['GET', 'POST'])
+def register():
+    """Register a new user."""
+    if request.method == 'POST':
+        name = request.form.get('name', '').strip()
+        age = request.form.get('age', '').strip()
+        sex = request.form.get('sex', '').strip()
+        experience = request.form.get('experience', '').strip()
+        phone_number = request.form.get('phone_number', '').strip()
 
-@app.errorhandler(500)
-def internal_error(error):
-    app.logger.info('An internal error occurred')
-    return jsonify({'error': 'An internal error occurred'}), 500
+        errors = []
+        if not name:
+            errors.append("Name is required.")
+        if not age.isdigit() or not (1 <= int(age) <= 120):
+            errors.append("Age must be a number between 1 and 120.")
+        if sex not in ('M', 'F'):
+            errors.append("Sex must be M or F.")
+        if not experience.isdigit() or int(experience) < 0:
+            errors.append("Experience must be a non-negative number.")
+        if not phone_number:
+            errors.append("Phone number is required.")
 
-@app.before_request
-def log_request_info():
-    app.logger.info(f"Request: {request.method} {request.url}")
+        if errors:
+            for err in errors:
+                flash(err, 'error')
+            return render_template('register.html')
+
+        add_user(name, int(age), sex, int(experience), phone_number)
+        flash('User registered successfully!', 'success')
+        return redirect(url_for('index'))
+
+    return render_template('register.html')
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    init_db()
+    port = int(os.environ.get('PORT', 5000))
+    app.run(debug=True, host='0.0.0.0', port=port)

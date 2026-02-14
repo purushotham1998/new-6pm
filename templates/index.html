@@ -1,170 +1,196 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>User Details</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            background-color: #f4f4f9;
-            color: #333;
-            margin: 0;
-            padding: 0;
-        }
+{% extends "base.html" %}
 
-        header {
-            background-color: #4CAF50;
-            color: white;
-            padding: 1rem 0;
-            text-align: center;
-        }
+{% block extra_css %}
+<style>
+    .filters {
+        background: var(--bg-card);
+        border-radius: 12px;
+        padding: 1.5rem;
+        margin-bottom: 1.5rem;
+        border: 1px solid var(--border);
+    }
 
-        .container {
-            max-width: 800px;
-            margin: 2rem auto;
-            background: white;
-            padding: 2rem;
-            border-radius: 8px;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-        }
+    .filters h2 {
+        font-size: 1rem;
+        font-weight: 600;
+        margin-bottom: 1rem;
+        color: var(--text-muted);
+    }
 
-        h1 {
-            color: #4CAF50;
-        }
+    .filter-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+        gap: 1rem;
+        align-items: end;
+    }
 
-        form {
-            margin-bottom: 2rem;
-        }
+    .filter-group {
+        display: flex;
+        flex-direction: column;
+        gap: 0.35rem;
+    }
 
-        label {
-            display: block;
-            margin: 0.5rem 0 0.2rem;
-        }
+    .filter-group label {
+        font-size: 0.8rem;
+        color: var(--text-muted);
+        font-weight: 500;
+    }
 
-        input, select, button {
-            width: 100%;
-            padding: 0.5rem;
-            margin-bottom: 1rem;
-            border: 1px solid #ccc;
-            border-radius: 4px;
-        }
+    .filter-group input,
+    .filter-group select {
+        padding: 0.6rem 0.75rem;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        background: var(--bg-secondary);
+        font-family: inherit;
+        font-size: 0.85rem;
+    }
 
-        button {
-            background-color: #4CAF50;
-            color: white;
-            border: none;
-            cursor: pointer;
-        }
+    .filter-group input:focus,
+    .filter-group select:focus {
+        outline: none;
+        border-color: var(--accent);
+    }
 
-        button:hover {
-            background-color: #45a049;
-        }
+    .filter-actions {
+        display: flex;
+        gap: 0.5rem;
+        margin-top: 1rem;
+        align-items: center;
+    }
 
-        ul {
-            list-style: none;
-            padding: 0;
-        }
+    .users-table-wrapper {
+        background: var(--bg-card);
+        border-radius: 12px;
+        overflow: hidden;
+        border: 1px solid var(--border);
+    }
 
-        li {
-            background: #f9f9f9;
-            margin: 0.5rem 0;
-            padding: 0.5rem;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-        }
-    </style>
-</head>
-<body>
-    <header>
-        <h1>User Details Application</h1>
-    </header>
-    <div class="container">
-        <h1>User Registration</h1>
-        <form id="registerForm">
-            <label for="name">Name:</label>
-            <input type="text" id="name" name="name" required>
+    table {
+        width: 100%;
+        border-collapse: collapse;
+    }
 
-            <label for="age">Age:</label>
-            <input type="number" id="age" name="age" required>
+    th, td {
+        padding: 1rem 1.25rem;
+        text-align: left;
+    }
 
-            <label for="sex">Sex:</label>
-            <select id="sex" name="sex" required>
-                <option value="Male">Male</option>
-                <option value="Female">Female</option>
-            </select>
+    th {
+        background: var(--bg-secondary);
+        font-size: 0.8rem;
+        font-weight: 600;
+        color: var(--text-muted);
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+    }
 
-            <label for="mobile_number">Mobile Number:</label>
-            <input type="text" id="mobile_number" name="mobile_number" required>
+    tr {
+        border-bottom: 1px solid var(--border);
+    }
 
-            <label for="experience">Experience (years):</label>
-            <input type="number" id="experience" name="experience" required>
+    tr:last-child {
+        border-bottom: none;
+    }
 
-            <label for="locality">Locality:</label>
-            <input type="text" id="locality" name="locality" required>
+    td {
+        font-size: 0.95rem;
+    }
 
-            <button type="submit">Register</button>
-        </form>
+    .empty-state {
+        padding: 3rem 2rem;
+        text-align: center;
+        color: var(--text-muted);
+    }
 
-        <h1>Search Users</h1>
-        <form id="searchForm">
-            <label for="searchName">Name:</label>
-            <input type="text" id="searchName" name="name">
+    .user-count {
+        font-size: 0.9rem;
+        color: var(--text-muted);
+        margin-bottom: 1rem;
+    }
 
-            <label for="searchAge">Age:</label>
-            <input type="number" id="searchAge" name="age">
+    .user-count strong {
+        color: var(--accent);
+    }
+</style>
+{% endblock %}
 
-            <label for="searchSex">Sex:</label>
-            <select id="searchSex" name="sex">
-                <option value="">Any</option>
-                <option value="Male">Male</option>
-                <option value="Female">Female</option>
-            </select>
+{% block content %}
+<div class="filters">
+    <h2>Filter Users</h2>
+    <form method="get" action="{{ url_for('index') }}">
+        <div class="filter-grid">
+            <div class="filter-group">
+                <label for="age_min">Age Min (years)</label>
+                <input type="number" id="age_min" name="age_min" value="{{ age_min }}" min="0" max="120" placeholder="Min">
+            </div>
+            <div class="filter-group">
+                <label for="age_max">Age Max (years)</label>
+                <input type="number" id="age_max" name="age_max" value="{{ age_max }}" min="0" max="120" placeholder="Max">
+            </div>
+            <div class="filter-group">
+                <label for="exp_min">Experience Min (years)</label>
+                <input type="number" id="exp_min" name="exp_min" value="{{ exp_min }}" min="0" max="100" placeholder="Min">
+            </div>
+            <div class="filter-group">
+                <label for="exp_max">Experience Max (years)</label>
+                <input type="number" id="exp_max" name="exp_max" value="{{ exp_max }}" min="0" max="100" placeholder="Max">
+            </div>
+            <div class="filter-group">
+                <label for="sex">Sex</label>
+                <select id="sex" name="sex">
+                    <option value="" {% if not sex %}selected{% endif %}>None</option>
+                    <option value="M" {% if sex == 'M' %}selected{% endif %}>Male</option>
+                    <option value="F" {% if sex == 'F' %}selected{% endif %}>Female</option>
+                </select>
+            </div>
+        </div>
+        <div class="filter-actions">
+            <button type="submit" class="btn btn-primary">Apply Filters</button>
+            <a href="{{ url_for('index') }}" class="btn btn-secondary">Clear Filters</a>
+        </div>
+    </form>
+</div>
 
-            <label for="searchLocality">Locality:</label>
-            <input type="text" id="searchLocality" name="locality">
+<div class="user-count">
+    {% if users|length == total_users %}
+        Showing <strong>{{ total_users }}</strong> users
+    {% elif users|length == 1 and total_users == 1 %}
+        Showing <strong>1</strong> user
+    {% else %}
+        Showing <strong>{{ users|length }}</strong> of <strong>{{ total_users }}</strong> users
+    {% endif %}
+</div>
 
-            <button type="submit">Search</button>
-        </form>
-
-        <h2>Search Results</h2>
-        <ul id="results"></ul>
+<div class="users-table-wrapper">
+    {% if users %}
+    <table>
+        <thead>
+            <tr>
+                <th>Name</th>
+                <th>Age</th>
+                <th>Sex</th>
+                <th>Experience (Years)</th>
+                <th>Phone Number</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for user in users %}
+            <tr>
+                <td>{{ user.name }}</td>
+                <td>{{ user.age }}</td>
+                <td>{{ user.sex }}</td>
+                <td>{{ user.experience }}</td>
+                <td>{{ user.phone_number }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <div class="empty-state">
+        <p>No users found matching your filters.</p>
+        <a href="{{ url_for('index') }}" class="btn btn-secondary">Clear Filters</a>
     </div>
-    <script>
-        document.getElementById('registerForm').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const formData = new FormData(e.target);
-            const data = Object.fromEntries(formData);
-
-            const response = await fetch('/register', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(data)
-            });
-
-            if (response.ok) {
-                alert('User registered successfully!');
-                e.target.reset();
-            } else {
-                alert('Failed to register user.');
-            }
-        });
-
-        document.getElementById('searchForm').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const params = new URLSearchParams(new FormData(e.target));
-
-            const response = await fetch(`/users?${params}`);
-            const users = await response.json();
-
-            const results = document.getElementById('results');
-            results.innerHTML = '';
-            users.forEach(user => {
-                const li = document.createElement('li');
-                li.textContent = `${user.name}, ${user.age} years old, ${user.sex}, ${user.locality}`;
-                results.appendChild(li);
-            });
-        });
-    </script>
-</body>
-</html>
+    {% endif %}
+</div>
+{% endblock %}

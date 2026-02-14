@@ -1,0 +1,108 @@
+{% extends "base.html" %}
+
+{% block title %}Register New User - User Management{% endblock %}
+
+{% block extra_css %}
+<style>
+    .register-card {
+        background: var(--bg-card);
+        border-radius: 12px;
+        padding: 2rem;
+        max-width: 480px;
+        border: 1px solid var(--border);
+    }
+
+    .register-card h2 {
+        font-size: 1.25rem;
+        margin-bottom: 1.5rem;
+        color: var(--text-primary);
+    }
+
+    .form-group {
+        margin-bottom: 1.25rem;
+    }
+
+    .form-group label {
+        display: block;
+        font-size: 0.85rem;
+        font-weight: 500;
+        color: var(--text-muted);
+        margin-bottom: 0.4rem;
+    }
+
+    .form-group input,
+    .form-group select {
+        width: 100%;
+        padding: 0.65rem 1rem;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        background: var(--bg-secondary);
+        color: var(--text-primary);
+        font-family: inherit;
+        font-size: 1rem;
+    }
+
+    .form-group input:focus,
+    .form-group select:focus {
+        outline: none;
+        border-color: var(--accent);
+    }
+
+    .form-actions {
+        display: flex;
+        gap: 0.75rem;
+        margin-top: 1.5rem;
+    }
+
+    .form-actions .btn {
+        flex: 1;
+        justify-content: center;
+        display: flex;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="register-card">
+    <h2>Register New User</h2>
+    <form method="post" action="{{ url_for('register') }}">
+        <div class="form-group">
+            <label for="name">Name *</label>
+            <input type="text" id="name" name="name" required 
+                   placeholder="Enter full name" value="{{ name|default('') }}">
+        </div>
+
+        <div class="form-group">
+            <label for="age">Age *</label>
+            <input type="number" id="age" name="age" required min="1" max="120"
+                   placeholder="Enter age" value="{{ age|default('') }}">
+        </div>
+
+        <div class="form-group">
+            <label for="sex">Sex *</label>
+            <select id="sex" name="sex" required>
+                <option value="">Select...</option>
+                <option value="M" {% if sex == 'M' %}selected{% endif %}>Male</option>
+                <option value="F" {% if sex == 'F' %}selected{% endif %}>Female</option>
+            </select>
+        </div>
+
+        <div class="form-group">
+            <label for="experience">Experience (years) *</label>
+            <input type="number" id="experience" name="experience" required min="0"
+                   placeholder="Years of experience" value="{{ experience|default('') }}">
+        </div>
+
+        <div class="form-group">
+            <label for="phone_number">Phone Number *</label>
+            <input type="tel" id="phone_number" name="phone_number" required
+                   placeholder="e.g., 555-0101" value="{{ phone_number|default('') }}">
+        </div>
+
+        <div class="form-actions">
+            <button type="submit" class="btn btn-primary">Register User</button>
+            <a href="{{ url_for('index') }}" class="btn btn-secondary">Cancel</a>
+        </div>
+    </form>
+</div>
+{% endblock %}
