@@ -36,11 +36,11 @@ def init_db():
         cursor = conn.execute('SELECT COUNT(*) FROM users')
         if cursor.fetchone()[0] == 0:
             sample_users = [
-                ('purush', 28, 'M', 5, '0101'),
-                ('prem', 35, 'M', 12, '0102'),
-                ('anil', 42, 'F', 18, '0103'),
-                ('raju', 24, 'M', 2, '0104'),
-                ('rani', 31, 'F', 8, '0105')
+                ('purush', 28, 'M', 5, '9876543210'),
+                ('prem', 35, 'M', 12, '9846723'),
+                ('anil', 42, 'F', 18, '76835433'),
+                ('raju', 24, 'M', 2, '975634'),
+                ('rani', 31, 'F', 8, '148734')
             ]
             conn.executemany(
                 'INSERT INTO users (name, age, sex, experience, phone_number) VALUES (?, ?, ?, ?, ?)',
